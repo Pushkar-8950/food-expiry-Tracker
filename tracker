@@ -1,0 +1,114 @@
+from database import create_table, add_item, get_items, delete_item
+from reminder import check_expiry
+
+import pytesseract
+from PIL import Image
+import re
+from datetime import datetime
+
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+
+def main():
+    create_table()
+    while True:
+        print("\n--- Food Expiry Tracker ---")
+        print("1. Add Food Item")
+        print("2. View Food Items")
+        print("3. Check Expiry")
+        print("4. Delete Item")
+        print("5. Exit")
+
+        choice = input("Select an option: ")
+
+        if choice == '1':
+            print("1. Add manually")
+            print("2. Extract from image (OCR)")
+            sub_choice = input("Choose method: ")
+
+            if sub_choice == '1':
+                name = input("Enter food name: ")
+                try:
+                    quantity = int(input("Enter quantity: "))
+                except ValueError:
+                    print("Invalid quantity!")
+                    continue
+                expiry_date = input("Enter expiry date (YYYY-MM-DD): ")
+
+            elif sub_choice == '2':
+                image_path = input("Enter image file path: ")
+                try:
+                    img = Image.open(image_path)
+                    text = pytesseract.image_to_string(img)
+                    print("\n--- Extracted Text ---")
+                    print(text)
+                    print("-----------------------")
+
+                    # Try to detect expiry date
+                    expiry_match = re.search(
+                        r'(Exp\.?|Expiry|Best\s*Before)[^\d]*(\d{1,2}\s*[A-Za-z]{3,}\s*\d{4})',
+                        text,
+                        re.IGNORECASE
+                    )
+
+                    expiry_date = None
+                    if expiry_match:
+                        raw_date = expiry_match.group(2).strip()
+                        try:
+                            parsed_date = datetime.strptime(raw_date, "%d %b %Y")
+                        except ValueError:
+                            try:
+                                parsed_date = datetime.strptime(raw_date, "%d %B %Y")
+                            except ValueError:
+                                parsed_date = None
+
+                        if parsed_date:
+                            expiry_date = parsed_date.strftime("%Y-%m-%d")
+                            print(f"Detected expiry date: {expiry_date}")
+
+                    name = input("Enter food name (from above text if possible): ")
+                    try:
+                        quantity = int(input("Enter quantity: "))
+                    except ValueError:
+                        print("Invalid quantity!")
+                        continue
+
+                    if not expiry_date:
+                        expiry_date = input("Enter expiry date (YYYY-MM-DD): ")
+
+                except Exception as e:
+                    print("Error reading image:", e)
+                    continue
+            else:
+                print("Invalid choice!")
+                continue
+
+            add_item(name, quantity, expiry_date)
+            print(f"Added {name} to tracker.")
+
+        elif choice == '2':
+            items = get_items()
+            if not items:
+                print("No items in tracker.")
+            else:
+                print("\nTracked Items:")
+                for item in items:
+                    print(f"{item[0]}. {item[1]} (x{item[2]}) - Expires on {item[3]}")
+
+        elif choice == '3':
+            check_expiry()
+
+        elif choice == '4':
+            item_id = input("Enter the ID of the item to delete: ")
+            delete_item(item_id)
+            print("Item deleted.")
+
+        elif choice == '5':
+            print("Exiting tracker. Stay organized!")
+            break
+        else:
+            print("Invalid choice. Try again.")
+
+
+if __name__ == "__main__":
+    main()
