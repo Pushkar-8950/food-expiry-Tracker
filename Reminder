@@ -1,0 +1,21 @@
+from datetime import datetime, timedelta
+from database import get_items
+
+def check_expiry():
+    items = get_items()
+    today = datetime.now().date()
+    expiring_soon = []
+    expired = []
+
+    for item in items:
+        try:
+            expiry_date = datetime.strptime(item[3], "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        if expiry_date < today:
+            expired.append(item)
+        elif expiry_date <= today + timedelta(days=7):
+            expiring_soon.append(item)
+
+    return expired, expiring_soon
